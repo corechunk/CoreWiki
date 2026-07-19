@@ -126,6 +126,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     lucide.createIcons();
     
+    // Watch browser history navigation
+    window.addEventListener('hashchange', handleRouting);
+    
     // Automatically open modal if config is empty
     if (!state.config.owner || !state.config.repo) {
         showSettingsModal();
@@ -133,6 +136,29 @@ document.addEventListener('DOMContentLoaded', () => {
         syncRepository();
     }
 });
+
+// Routing Handler
+function handleRouting() {
+    const hash = window.location.hash;
+    if (hash && hash.startsWith('#/')) {
+        const path = decodeURIComponent(hash.substring(2));
+        loadNote(path);
+    } else {
+        loadDefaultNote();
+    }
+}
+
+// Default Note Fallback
+function loadDefaultNote() {
+    const rootReadme = Object.keys(state.flatFiles).find(p => p.toLowerCase() === 'readme.md');
+    if (rootReadme) {
+        loadNote(rootReadme);
+    } else if (Object.keys(state.flatFiles).length > 0) {
+        loadNote(Object.keys(state.flatFiles)[0]);
+    } else {
+        showWelcomeScreen("No Markdown files found in this repository branch.");
+    }
+}
 
 // Configure listeners
 function setupEventListeners() {
@@ -329,15 +355,8 @@ async function syncRepository() {
         state.fileTree = buildTreeHierarchy(markdownNodes);
         renderFileTree(state.fileTree);
         
-        // Auto-load README.md if present at root, or the first note
-        const rootReadme = Object.keys(state.flatFiles).find(p => p.toLowerCase() === 'readme.md');
-        if (rootReadme) {
-            loadNote(rootReadme);
-        } else if (Object.keys(state.flatFiles).length > 0) {
-            loadNote(Object.keys(state.flatFiles)[0]);
-        } else {
-            showWelcomeScreen("No Markdown files found in this repository branch.");
-        }
+        // Trigger initial routing check
+        handleRouting();
 
     } catch (error) {
         console.error(error);
@@ -434,6 +453,13 @@ function renderFileTree(nodes, container = elements.fileTree, isRoot = true) {
                 childContainer.style.display = item.classList.contains('collapsed') ? 'none' : 'block';
             });
             
+            // Right-click context menu listener
+            item.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                showFolderContextMenu(e, node, childContainer, item);
+            });
+            
             div.appendChild(item);
             div.appendChild(childContainer);
             
@@ -452,7 +478,8 @@ function renderFileTree(nodes, container = elements.fileTree, isRoot = true) {
                 document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active'));
                 item.classList.add('active');
                 
-                loadNote(node.path);
+                // Update hash trigger (browser handles loading via hashchange event)
+                window.location.hash = '/' + node.path;
 
                 // Close mobile sidebar
                 if (window.innerWidth <= 768) {
@@ -556,8 +583,91 @@ function highlightSidebarItem(path) {
 
 // Handle relative/wiki spa link navigation
 window.navigateToSpaLink = function(targetPath) {
-    loadNote(targetPath);
+    window.location.hash = '/' + targetPath;
 };
+
+// Create custom context menu for directory nodes
+function showFolderContextMenu(e, node, childContainer, item) {
+    removeFolderContextMenus();
+
+    const menu = document.createElement('div');
+    menu.className = 'folder-context-menu glass-panel';
+    menu.style.position = 'absolute';
+    menu.style.left = `${e.pageX}px`;
+    menu.style.top = `${e.pageY}px`;
+    menu.style.zIndex = '1000';
+    menu.style.padding = '0.3rem';
+    menu.style.borderRadius = '8px';
+    menu.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+    menu.style.border = '1px solid var(--border-color)';
+    menu.style.background = 'var(--bg-surface)';
+    menu.style.backdropFilter = 'blur(10px)';
+
+    const option = document.createElement('div');
+    option.className = 'context-menu-item';
+    option.style.display = 'flex';
+    option.style.alignItems = 'center';
+    option.style.gap = '0.5rem';
+    option.style.padding = '0.5rem 1rem';
+    option.style.cursor = 'pointer';
+    option.style.borderRadius = '6px';
+    option.style.fontSize = '0.85rem';
+    option.style.color = 'var(--text-primary)';
+    option.innerHTML = `<i data-lucide="folder-open" style="width:14px;height:14px;color:var(--primary-color)"></i> Open Folder`;
+
+    option.addEventListener('click', () => {
+        openFolder(node, childContainer, item);
+        removeFolderContextMenus();
+    });
+
+    menu.appendChild(option);
+    document.body.appendChild(menu);
+    lucide.createIcons();
+
+    // Close menu on click anywhere
+    setTimeout(() => {
+        document.addEventListener('click', removeFolderContextMenus, { once: true });
+    }, 10);
+}
+
+// Clean up existing context menus
+function removeFolderContextMenus() {
+    const existing = document.querySelectorAll('.folder-context-menu');
+    existing.forEach(el => el.remove());
+}
+
+// Open folder action
+function openFolder(node, childContainer, item) {
+    // Expand the folder visually in the sidebar
+    item.classList.remove('collapsed');
+    childContainer.style.display = 'block';
+    
+    // Look for README.md or readme.md
+    const readme = node.children.find(child => child.type === 'file' && child.name.toLowerCase() === 'readme.md');
+    
+    if (readme) {
+        window.location.hash = '/' + readme.path;
+    } else {
+        // Clear active highlights and display blank screen
+        document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active'));
+        showNoReadmeScreen(node.name);
+    }
+}
+
+// Render clean blank screen if directory has no README
+function showNoReadmeScreen(folderName) {
+    state.activePath = null;
+    elements.breadcrumbs.innerHTML = `<span>${folderName}</span>`;
+    
+    elements.contentViewer.innerHTML = `
+        <div class="welcome-screen no-readme-screen">
+            <i data-lucide="folder" class="welcome-icon" style="color: var(--text-muted)"></i>
+            <h2>${folderName}</h2>
+            <p>This folder does not contain a <code>README.md</code>. Please select a specific note from the sidebar.</p>
+        </div>
+    `;
+    lucide.createIcons();
+}
 
 // Render Math Formulas (LaTeX) using KaTeX
 function renderMathInDocument(element) {

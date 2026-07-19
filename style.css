@@ -624,3 +624,12 @@ body {
         display: flex;
     }
 }
+
+/* Custom Context Menu styling */
+.context-menu-item {
+    transition: all var(--transition-speed);
+}
+.context-menu-item:hover {
+    background: var(--bg-surface-hover) !important;
+    color: var(--primary-color) !important;
+}
