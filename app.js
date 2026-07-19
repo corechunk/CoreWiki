@@ -3,8 +3,8 @@
 // App state
 const state = {
     config: {
-        owner: '',
-        repo: '',
+        owner: 'corechunk',
+        repo: 'CoreDocs',
         branch: 'main',
         token: ''
     },
