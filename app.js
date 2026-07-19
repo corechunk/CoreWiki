@@ -32,24 +32,30 @@ try {
     mdParser = window.markdownit({
         html: true,
         linkify: true,
-        typographer: true,
-        highlight: function (str, lang) {
-            const cleanLang = lang || 'text';
-            if (cleanLang === 'mermaid') {
-                return `<pre class="language-mermaid"><code>${str}</code></pre>`;
-            }
-            const escapedCode = mdParser.utils.escapeHtml(str);
-            return `<div class="code-container">
-                <div class="code-header">
-                    <span class="code-language">${cleanLang}</span>
-                    <button class="copy-code-btn" onclick="copyCodeToClipboard(this)">
-                        <i data-lucide="copy" style="width:12px;height:12px;"></i> Copy
-                    </button>
-                </div>
-                <pre class="language-${cleanLang}"><code>${escapedCode}</code></pre>
-            </div>`;
-        }
+        typographer: true
     });
+
+    // Custom renderer for code blocks (fences) to prevent markdown-it from wrapping them
+    mdParser.renderer.rules.fence = function (tokens, idx, options, env, self) {
+        const token = tokens[idx];
+        const lang = token.info ? token.info.trim() : 'text';
+        const code = token.content;
+        
+        if (lang === 'mermaid') {
+            return `<pre class="language-mermaid"><code>${code}</code></pre>`;
+        }
+        
+        const escapedCode = mdParser.utils.escapeHtml(code);
+        return `<div class="code-container">
+            <div class="code-header">
+                <span class="code-language">${lang}</span>
+                <button class="copy-code-btn" onclick="copyCodeToClipboard(this)">
+                    <i data-lucide="copy" style="width:12px;height:12px;"></i> Copy
+                </button>
+            </div>
+            <pre class="language-${lang}"><code>${escapedCode}</code></pre>
+        </div>`;
+    };
 
     // Custom rules for links (handle wiki links and relative path translation)
     const defaultRender = mdParser.renderer.rules.link_open || function(tokens, idx, options, env, self) {
