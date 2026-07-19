@@ -1,0 +1,12 @@
+pages:
+  stage: deploy
+  script:
+    # Create a temporary directory, copy everything to it, and rename it to 'public'
+    - mkdir .public
+    - cp -r * .public || true
+    - mv .public public
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
