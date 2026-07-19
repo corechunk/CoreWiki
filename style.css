@@ -385,13 +385,60 @@ body {
     color: inherit;
 }
 
-.markdown-body pre {
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--border-color);
+/* Code container & top header styling */
+.code-container {
+    margin-bottom: 1.25rem;
     border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 0.4rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.code-language {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    letter-spacing: 0.05em;
+}
+
+.copy-code-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    cursor: pointer;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    transition: all var(--transition-speed);
+}
+
+.copy-code-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-surface-hover);
+}
+
+.markdown-body pre {
+    background: transparent;
+    border: none;
+    border-radius: 0;
     padding: 1rem;
     overflow-x: auto;
-    margin-bottom: 1.25rem;
+    margin-bottom: 0;
 }
 
 .markdown-body a {
@@ -412,6 +459,46 @@ body {
     color: var(--text-muted);
     font-style: italic;
     margin: 1.5rem 0;
+}
+
+/* Markdown Tables styling */
+.markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1.5rem;
+    font-size: 0.925rem;
+}
+
+.markdown-body th,
+.markdown-body td {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-color);
+    text-align: left;
+}
+
+.markdown-body th {
+    background: rgba(99, 102, 241, 0.08);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.markdown-body tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.015);
+}
+
+.markdown-body tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* Mermaid SVG chart container spacing */
+.mermaid {
+    display: flex;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
 }
 
 /* Welcome Screen */

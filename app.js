@@ -15,6 +15,17 @@ const state = {
     theme: 'dark'
 };
 
+// Initialize Mermaid
+try {
+    mermaid.initialize({
+        startOnLoad: false,
+        theme: 'dark',
+        securityLevel: 'loose'
+    });
+} catch(e) {
+    console.error("Failed to initialize Mermaid", e);
+}
+
 // Markdown-it custom configuration
 let mdParser;
 try {
@@ -23,8 +34,20 @@ try {
         linkify: true,
         typographer: true,
         highlight: function (str, lang) {
-            // Let Prism handle syntax loading dynamically
-            return `<pre class="language-${lang || 'markup'}"><code>${mdParser.utils.escapeHtml(str)}</code></pre>`;
+            const cleanLang = lang || 'text';
+            if (cleanLang === 'mermaid') {
+                return `<pre class="language-mermaid"><code>${str}</code></pre>`;
+            }
+            const escapedCode = mdParser.utils.escapeHtml(str);
+            return `<div class="code-container">
+                <div class="code-header">
+                    <span class="code-language">${cleanLang}</span>
+                    <button class="copy-code-btn" onclick="copyCodeToClipboard(this)">
+                        <i data-lucide="copy" style="width:12px;height:12px;"></i> Copy
+                    </button>
+                </div>
+                <pre class="language-${cleanLang}"><code>${escapedCode}</code></pre>
+            </div>`;
         }
     });
 
@@ -126,6 +149,24 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     lucide.createIcons();
     
+    // Register clipboard copy utility globally
+    window.copyCodeToClipboard = function(btn) {
+        const codeBlock = btn.parentElement.nextElementSibling.querySelector('code');
+        if (!codeBlock) return;
+        
+        navigator.clipboard.writeText(codeBlock.textContent).then(() => {
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = `<i data-lucide="check" style="width:12px;height:12px;color:#10b981;"></i> Copied`;
+            lucide.createIcons();
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                lucide.createIcons();
+            }, 2000);
+        }).catch(err => {
+            console.error("Failed to copy code: ", err);
+        });
+    };
+
     // Watch browser history navigation
     window.addEventListener('hashchange', handleRouting);
     
@@ -532,6 +573,9 @@ async function loadNote(path) {
         
         elements.contentViewer.innerHTML = html;
         
+        // Render Mermaid Diagrams dynamically
+        await renderMermaidDiagrams(elements.contentViewer);
+        
         // Trigger Prism syntax highlighting
         Prism.highlightAllUnder(elements.contentViewer);
         
@@ -803,4 +847,33 @@ function showWelcomeScreen(message) {
         </div>
     `;
     lucide.createIcons();
+}
+
+// Convert matching mermaid code blocks to visual diagrams
+async function renderMermaidDiagrams(container) {
+    const mermaidPres = container.querySelectorAll('pre.language-mermaid');
+    if (mermaidPres.length === 0) return;
+    
+    for (let i = 0; i < mermaidPres.length; i++) {
+        const pre = mermaidPres[i];
+        const code = pre.querySelector('code');
+        if (!code) continue;
+        
+        const diagramText = code.textContent.trim();
+        
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mermaid';
+        wrapper.id = `mermaid-chart-${i}`;
+        wrapper.textContent = diagramText;
+        
+        pre.parentNode.replaceChild(wrapper, pre);
+    }
+    
+    try {
+        await mermaid.run({
+            nodes: container.querySelectorAll('.mermaid')
+        });
+    } catch (err) {
+        console.error("Mermaid rendering error:", err);
+    }
 }
