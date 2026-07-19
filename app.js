@@ -356,7 +356,7 @@ function renderFileTree(nodes, container = elements.fileTree, isRoot = true) {
         div.className = `tree-node ${isRoot ? 'root-node' : ''}`;
         
         const item = document.createElement('div');
-        item.className = 'tree-item';
+        item.className = node.type === 'directory' ? 'tree-item collapsed' : 'tree-item';
         item.setAttribute('data-path', node.path);
         
         if (node.type === 'directory') {
@@ -368,6 +368,7 @@ function renderFileTree(nodes, container = elements.fileTree, isRoot = true) {
             
             const childContainer = document.createElement('div');
             childContainer.className = 'tree-children';
+            childContainer.style.display = 'none';
             
             // Expand/Collapse click
             item.addEventListener('click', (e) => {
