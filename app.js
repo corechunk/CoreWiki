@@ -81,6 +81,28 @@ try {
         }
         return defaultRender(tokens, idx, options, env, self);
     };
+
+    // Custom renderer for images — rewrite relative src to full raw GitHub URL
+    mdParser.renderer.rules.image = function(tokens, idx, options, env, self) {
+        const token = tokens[idx];
+        // REQUIRED: alt text is stored in children, must be moved to attr
+        const altIdx = token.attrIndex('alt');
+        if (altIdx >= 0) {
+            token.attrs[altIdx][1] = self.renderInlineAsText(token.children, options, env);
+        }
+        // Rewrite relative src → full raw GitHub URL
+        const srcIdx = token.attrIndex('src');
+        if (srcIdx >= 0) {
+            const src = token.attrs[srcIdx][1];
+            if (src && !src.startsWith('http://') && !src.startsWith('https://') &&
+                !src.startsWith('data:') && !src.startsWith('//')) {
+                const absolutePath = resolveRelativePath(state.activePath, src);
+                token.attrs[srcIdx][1] =
+                    `https://raw.githubusercontent.com/${state.config.owner}/${state.config.repo}/${state.config.branch}/${absolutePath}`;
+            }
+        }
+        return self.renderToken(tokens, idx, options);
+    };
 } catch (e) {
     console.error("Failed to initialize markdown-it", e);
 }
@@ -440,8 +462,13 @@ const FILENAME_LANG = {
     editorconfig: 'none',
 };
 
-const BINARY_EXTS = new Set([
-    'png','jpg','jpeg','gif','webp','svg','ico','bmp',
+// Image extensions — shown in sidebar, rendered as <img> in content viewer
+const IMAGE_EXTS = new Set([
+    'png','jpg','jpeg','gif','webp','svg','ico','bmp'
+]);
+
+// True binary blobs — hidden from sidebar entirely
+const BLOB_EXTS = new Set([
     'pdf','zip','tar','gz','7z','rar',
     'exe','dll','so','bin','wasm',
     'mp3','mp4','wav','ogg','mov',
@@ -452,17 +479,19 @@ function getFileLang(filename) {
     const lower = filename.toLowerCase();
     const dotIdx = lower.lastIndexOf('.');
     const ext = dotIdx >= 0 ? lower.slice(dotIdx + 1) : '';
-    const base = dotIdx >= 0 ? lower.slice(0, dotIdx) : lower;
     const justName = lower.split('/').pop();
 
-    // Binary?
-    if (ext && BINARY_EXTS.has(ext)) return { lang: null, isBinary: true, isMd: false };
+    // True blob (non-displayable binary)?
+    if (ext && BLOB_EXTS.has(ext)) return { lang: null, isBinary: true, isImage: false, isMd: false };
+
+    // Image file?
+    if (ext && IMAGE_EXTS.has(ext)) return { lang: null, isBinary: false, isImage: true, isMd: false };
 
     // Markdown?
-    if (ext === 'md' || ext === 'markdown') return { lang: 'markdown', isBinary: false, isMd: true };
+    if (ext === 'md' || ext === 'markdown') return { lang: 'markdown', isBinary: false, isImage: false, isMd: true };
 
     // Extension map
-    if (ext && EXT_LANG[ext]) return { lang: EXT_LANG[ext], isBinary: false, isMd: false };
+    if (ext && EXT_LANG[ext]) return { lang: EXT_LANG[ext], isBinary: false, isImage: false, isMd: false };
 
     // Filename override (no extension or special names)
     const nameKey = justName.replace(/\.[^.]*$/, '').toLowerCase();
@@ -1289,6 +1318,11 @@ function setViewMode(mode) {
         let processed = parseWikiLinks(state.currentMarkdown);
         const html = mdParser.render(processed);
         elements.contentViewer.innerHTML = html;
+
+        // Post-process: fix raw HTML <img> tags with relative src
+        // (renderer.rules.image only covers markdown-style ![](). Raw HTML img tags bypass it)
+        fixRelativeImages(elements.contentViewer);
+
         lucide.createIcons();
         renderMermaidDiagrams(elements.contentViewer).then(() => {
             Prism.highlightAllUnder(elements.contentViewer);
@@ -1303,6 +1337,18 @@ function setViewMode(mode) {
         lucide.createIcons();
         Prism.highlightAllUnder(elements.contentViewer);
     }
+}
+
+// Fix relative <img src> paths in already-rendered HTML (catches raw HTML img tags)
+function fixRelativeImages(container) {
+    container.querySelectorAll('img').forEach(img => {
+        const src = img.getAttribute('src');
+        if (!src) return;
+        if (src.startsWith('http://') || src.startsWith('https://') ||
+            src.startsWith('data:') || src.startsWith('//')) return;
+        const absolutePath = resolveRelativePath(state.activePath, src);
+        img.src = `https://raw.githubusercontent.com/${state.config.owner}/${state.config.repo}/${state.config.branch}/${absolutePath}`;
+    });
 }
 
 // ─── Search Mode ─────────────────────────────────────────────────────────────
