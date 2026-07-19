@@ -143,29 +143,29 @@ const elements = {
     tokenInput: document.getElementById('gh-token')
 };
 
+// Register clipboard copy utility globally
+window.copyCodeToClipboard = function(btn) {
+    const codeBlock = btn.parentElement.nextElementSibling.querySelector('code');
+    if (!codeBlock) return;
+    
+    navigator.clipboard.writeText(codeBlock.textContent).then(() => {
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = `<i data-lucide="check" style="width:12px;height:12px;color:#10b981;"></i> Copied`;
+        lucide.createIcons();
+        setTimeout(() => {
+            btn.innerHTML = originalHTML;
+            lucide.createIcons();
+        }, 2000);
+    }).catch(err => {
+        console.error("Failed to copy code: ", err);
+    });
+};
+
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
     loadConfig();
     setupEventListeners();
     lucide.createIcons();
-    
-    // Register clipboard copy utility globally
-    window.copyCodeToClipboard = function(btn) {
-        const codeBlock = btn.parentElement.nextElementSibling.querySelector('code');
-        if (!codeBlock) return;
-        
-        navigator.clipboard.writeText(codeBlock.textContent).then(() => {
-            const originalHTML = btn.innerHTML;
-            btn.innerHTML = `<i data-lucide="check" style="width:12px;height:12px;color:#10b981;"></i> Copied`;
-            lucide.createIcons();
-            setTimeout(() => {
-                btn.innerHTML = originalHTML;
-                lucide.createIcons();
-            }, 2000);
-        }).catch(err => {
-            console.error("Failed to copy code: ", err);
-        });
-    };
 
     // Watch browser history navigation
     window.addEventListener('hashchange', handleRouting);

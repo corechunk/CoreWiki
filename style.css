@@ -425,6 +425,9 @@ body {
     padding: 0.2rem 0.5rem;
     border-radius: 4px;
     transition: all var(--transition-speed);
+    position: relative;
+    z-index: 10;
+    pointer-events: auto;
 }
 
 .copy-code-btn:hover {
@@ -439,6 +442,24 @@ body {
     padding: 1rem;
     overflow-x: auto;
     margin-bottom: 0;
+}
+
+/* Force strip PrismTomorrow default styles inside our styled code containers */
+.code-container pre[class*="language-"] {
+    background: transparent !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 1rem !important;
+    box-shadow: none !important;
+}
+
+.code-container code[class*="language-"] {
+    background: transparent !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
 .markdown-body a {
