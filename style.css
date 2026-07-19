@@ -1245,6 +1245,102 @@ mark.search-highlight {
     padding: 0.3rem 0;
 }
 
+/* ── Repo combobox ────────────────────────────────────── */
+.repo-combobox {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: visible;
+    transition: border-color var(--transition-speed);
+}
+
+.repo-combobox:focus-within {
+    border-color: var(--primary-color);
+}
+
+.repo-combobox input {
+    flex: 1;
+    padding: 0.75rem;
+    background: transparent;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    min-width: 0;
+}
+
+.repo-dropdown-btn {
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    border-left: 1px solid var(--border-color);
+    color: var(--text-muted);
+    padding: 0 0.7rem;
+    height: 100%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color var(--transition-speed), background var(--transition-speed);
+    border-radius: 0 7px 7px 0;
+    min-height: 42px;
+}
+
+.repo-dropdown-btn:hover {
+    background: var(--bg-surface-hover);
+    color: var(--primary-color);
+}
+
+.repo-dropdown-btn.open i {
+    transform: rotate(180deg);
+}
+
+.repo-dropdown-btn i {
+    transition: transform 0.2s ease;
+}
+
+.repo-dropdown-list {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    z-index: 300;
+    overflow: hidden;
+    backdrop-filter: blur(12px);
+}
+
+.repo-dropdown-list.open {
+    display: block;
+}
+
+.repo-dropdown-item {
+    padding: 0.6rem 0.9rem;
+    font-size: 0.87rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background var(--transition-speed), color var(--transition-speed);
+}
+
+.repo-dropdown-item:hover {
+    background: rgba(99,102,241,0.12);
+    color: var(--primary-color);
+}
+
+.repo-dropdown-item.selected {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
     width: 6px;

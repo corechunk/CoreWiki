@@ -9,9 +9,12 @@ const state = {
         token: ''
     },
     fileTree: [],
-    flatFiles: {}, // path -> sha map
-    virtualToRealPaths: {}, // virtual -> real path mapping for symlinks
+    flatFiles: {},           // path -> sha map (md files only)
+    allFiles: new Set(),     // ALL blob paths in repo (for special file detection)
+    virtualToRealPaths: {},
     activePath: null,
+    currentMarkdown: null,
+    currentFileIsMd: true,   // track if current file is markdown
     theme: 'dark'
 };
 
@@ -251,6 +254,9 @@ function setupEventListeners() {
         tab.addEventListener('click', () => switchMetaTab(tab.dataset.tab));
     });
 
+    // Repo combobox
+    setupRepoCombobox();
+
     // Sidebar toggle (desktop collapse + mobile open/close)
     elements.sidebarToggle.addEventListener('click', toggleSidebar);
 
@@ -272,6 +278,44 @@ function setupEventListeners() {
         elements.viewBtnPreview.addEventListener('click', () => setViewMode('preview'));
         elements.viewBtnCode.addEventListener('click', () => setViewMode('code'));
     }
+}
+
+function setupRepoCombobox() {
+    const btn = document.getElementById('repo-dropdown-btn');
+    const list = document.getElementById('repo-dropdown-list');
+    const input = elements.repoInput;
+    if (!btn || !list || !input) return;
+
+    // Toggle dropdown
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = list.classList.contains('open');
+        list.classList.toggle('open', !isOpen);
+        btn.classList.toggle('open', !isOpen);
+        // Mark currently selected
+        list.querySelectorAll('.repo-dropdown-item').forEach(item => {
+            item.classList.toggle('selected', item.dataset.value === input.value.trim());
+        });
+    });
+
+    // Pick a preset
+    list.querySelectorAll('.repo-dropdown-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            input.value = item.dataset.value;
+            list.classList.remove('open');
+            btn.classList.remove('open');
+            input.focus();
+        });
+    });
+
+    // Close when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#repo-combobox')) {
+            list.classList.remove('open');
+            btn.classList.remove('open');
+        }
+    });
 }
 
 // LocalStorage configuration management
@@ -350,63 +394,149 @@ function switchMetaTab(tabName) {
     });
 }
 
+// ─── File type utilities ─────────────────────────────────────────────────────────────────
+
+// Extension -> Prism language map
+const EXT_LANG = {
+    // Systems
+    c: 'c', h: 'c',
+    cpp: 'cpp', cc: 'cpp', cxx: 'cpp', hpp: 'cpp',
+    rs: 'rust',
+    go: 'go',
+    // Scripting
+    py: 'python',
+    js: 'javascript', mjs: 'javascript', cjs: 'javascript',
+    ts: 'typescript',
+    rb: 'ruby',
+    php: 'php',
+    lua: 'lua',
+    // Shell
+    sh: 'bash', bash: 'bash', zsh: 'bash', fish: 'bash',
+    // Web
+    html: 'html', htm: 'html',
+    css: 'css', scss: 'scss', sass: 'scss',
+    // Data / config
+    json: 'json',
+    yaml: 'yaml', yml: 'yaml',
+    toml: 'toml',
+    xml: 'xml',
+    sql: 'sql',
+    // Docs
+    md: 'markdown', markdown: 'markdown',
+    txt: 'none',
+};
+
+// Filename-based overrides (no extension)
+const FILENAME_LANG = {
+    makefile: 'makefile',
+    dockerfile: 'docker',
+    license: 'none',
+    readme: 'none',
+    contributing: 'none',
+    changelog: 'none',
+    authors: 'none',
+    gitignore: 'git',
+    gitattributes: 'git',
+    editorconfig: 'none',
+};
+
+const BINARY_EXTS = new Set([
+    'png','jpg','jpeg','gif','webp','svg','ico','bmp',
+    'pdf','zip','tar','gz','7z','rar',
+    'exe','dll','so','bin','wasm',
+    'mp3','mp4','wav','ogg','mov',
+    'ttf','woff','woff2','eot'
+]);
+
+function getFileLang(filename) {
+    const lower = filename.toLowerCase();
+    const dotIdx = lower.lastIndexOf('.');
+    const ext = dotIdx >= 0 ? lower.slice(dotIdx + 1) : '';
+    const base = dotIdx >= 0 ? lower.slice(0, dotIdx) : lower;
+    const justName = lower.split('/').pop();
+
+    // Binary?
+    if (ext && BINARY_EXTS.has(ext)) return { lang: null, isBinary: true, isMd: false };
+
+    // Markdown?
+    if (ext === 'md' || ext === 'markdown') return { lang: 'markdown', isBinary: false, isMd: true };
+
+    // Extension map
+    if (ext && EXT_LANG[ext]) return { lang: EXT_LANG[ext], isBinary: false, isMd: false };
+
+    // Filename override (no extension or special names)
+    const nameKey = justName.replace(/\.[^.]*$/, '').toLowerCase();
+    if (FILENAME_LANG[nameKey]) return { lang: FILENAME_LANG[nameKey], isBinary: false, isMd: false };
+
+    // Unknown — plain text
+    return { lang: 'none', isBinary: false, isMd: false };
+}
+
 // Special repo files to look for
 const SPECIAL_FILES = [
-    { name: 'LICENSE',           desc: 'Project license',              icon: 'scale' },
-    { name: 'LICENSE.md',        desc: 'Project license',              icon: 'scale' },
-    { name: 'ABOUT.md',          desc: 'About this project',           icon: 'info' },
-    { name: 'CONTRIBUTING.md',   desc: 'Contribution guidelines',      icon: 'git-pull-request' },
-    { name: 'CHANGELOG.md',      desc: 'Version history',              icon: 'history' },
-    { name: 'CODE_OF_CONDUCT.md',desc: 'Community standards',          icon: 'shield' },
-    { name: 'SECURITY.md',       desc: 'Security policy',              icon: 'lock' },
-    { name: 'ROADMAP.md',        desc: 'Project roadmap',              icon: 'map' },
-    { name: 'ARCHITECTURE.md',   desc: 'System architecture',          icon: 'layers' },
-    { name: 'INSTALL.md',        desc: 'Installation guide',           icon: 'download' },
-    { name: 'README.md',         desc: 'Project readme',               icon: 'book-open' },
+    { name: 'LICENSE',            desc: 'Project license',         icon: 'scale' },
+    { name: 'LICENSE.md',         desc: 'Project license',         icon: 'scale' },
+    { name: 'LICENSE.txt',        desc: 'Project license',         icon: 'scale' },
+    { name: 'ABOUT.md',           desc: 'About this project',      icon: 'info' },
+    { name: 'CONTRIBUTING.md',    desc: 'Contribution guidelines', icon: 'git-pull-request' },
+    { name: 'CONTRIBUTING',       desc: 'Contribution guidelines', icon: 'git-pull-request' },
+    { name: 'CHANGELOG.md',       desc: 'Version history',         icon: 'history' },
+    { name: 'CHANGELOG',          desc: 'Version history',         icon: 'history' },
+    { name: 'CODE_OF_CONDUCT.md', desc: 'Community standards',     icon: 'shield' },
+    { name: 'SECURITY.md',        desc: 'Security policy',         icon: 'lock' },
+    { name: 'SECURITY',           desc: 'Security policy',         icon: 'lock' },
+    { name: 'ROADMAP.md',         desc: 'Project roadmap',         icon: 'map' },
+    { name: 'ARCHITECTURE.md',    desc: 'Architecture overview',   icon: 'layers' },
+    { name: 'INSTALL.md',         desc: 'Installation guide',      icon: 'download' },
+    { name: 'README.md',          desc: 'Project readme',          icon: 'book-open' },
 ];
 
-async function scanRepoFiles() {
+// Instant scan — uses state.allFiles (already fetched during sync, zero extra requests)
+function scanRepoFiles() {
     const list = elements.repofilesList;
     if (!list) return;
+
     if (!state.config.owner || !state.config.repo) {
         list.innerHTML = '<p class="repofile-not-found">Configure a repository first.</p>';
         return;
     }
 
-    list.innerHTML = '<div class="loading-spinner" style="padding:1.5rem 0;"><i data-lucide="loader" class="spin"></i> Scanning...</div>';
-    lucide.createIcons();
-
-    const found = [];
-    await Promise.all(SPECIAL_FILES.map(async (sf) => {
-        const url = `https://raw.githubusercontent.com/${state.config.owner}/${state.config.repo}/${state.config.branch}/${sf.name}`;
-        try {
-            const res = await fetch(url, { method: 'HEAD', headers: getFetchHeaders() });
-            if (res.ok) found.push(sf);
-        } catch(_) {}
-    }));
+    if (state.allFiles.size === 0) {
+        list.innerHTML = '<p class="repofile-not-found">Load a repository first.</p>';
+        return;
+    }
 
     list.innerHTML = '';
+
+    // De-dupe by base name (e.g. LICENSE wins over LICENSE.md)
+    const seen = new Set();
+    const found = SPECIAL_FILES.filter(sf => {
+        if (!state.allFiles.has(sf.name)) return false;
+        const key = sf.name.toLowerCase().replace(/\.md$|\.txt$/, '');
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+
     if (found.length === 0) {
         list.innerHTML = '<p class="repofile-not-found">No special files found in this repo.</p>';
         return;
     }
 
-    // De-dupe (e.g. LICENSE and LICENSE.md — keep only first found)
-    const seen = new Set();
-    found.filter(sf => {
-        const key = sf.name.replace('.md','').toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-    }).forEach(sf => {
+    found.forEach(sf => {
         const item = document.createElement('div');
         item.className = 'repofile-item';
+        const { isMd } = getFileLang(sf.name);
+        const badge = isMd
+            ? '<span style="font-size:0.65rem;color:var(--primary-color);margin-left:auto;">md</span>'
+            : '<span style="font-size:0.65rem;color:var(--text-muted);margin-left:auto;">text</span>';
         item.innerHTML = `
             <i data-lucide="${sf.icon}" style="width:16px;height:16px;"></i>
-            <div>
+            <div style="flex:1;min-width:0;">
                 <div class="repofile-item-name">${sf.name}</div>
                 <div class="repofile-item-desc">${sf.desc}</div>
-            </div>`;
+            </div>
+            ${badge}`;
         item.addEventListener('click', () => {
             closeMetaPanel();
             loadRawFile(sf.name);
@@ -416,22 +546,75 @@ async function scanRepoFiles() {
     lucide.createIcons();
 }
 
-// Load a raw (non-markdown) or markdown file into the content viewer
+// Load any file (md or non-md) into the content viewer
 async function loadRawFile(filename) {
+    const { lang, isBinary, isMd } = getFileLang(filename);
     state.activePath = filename;
+    state.currentFileIsMd = isMd;
     elements.breadcrumbs.innerHTML = `<span class="current">${filename}</span>`;
+
+    // Update view-selector: lock Preview for non-md
+    if (elements.viewSelector) elements.viewSelector.style.display = 'flex';
+    if (elements.viewBtnPreview) {
+        elements.viewBtnPreview.disabled = !isMd;
+        elements.viewBtnPreview.style.opacity = isMd ? '' : '0.35';
+        elements.viewBtnPreview.title = isMd ? 'Preview' : 'Preview not available for this file type';
+    }
+
+    // Binary: show notice, no fetch needed
+    if (isBinary) {
+        elements.contentViewer.innerHTML = `
+            <div class="welcome-screen">
+                <i data-lucide="file-x" class="welcome-icon" style="color:var(--text-muted)"></i>
+                <h2>${filename}</h2>
+                <p>Binary file — cannot display content.</p>
+            </div>`;
+        lucide.createIcons();
+        return;
+    }
+
     elements.contentViewer.innerHTML = `<div class="loading-spinner"><i data-lucide="loader" class="spin"></i> Loading ${filename}...</div>`;
     lucide.createIcons();
 
     try {
+        // Use plain fetch (no API Accept header) — same as loadNote
         const url = `https://raw.githubusercontent.com/${state.config.owner}/${state.config.repo}/${state.config.branch}/${filename}`;
-        const res = await fetch(url, { headers: getFetchHeaders() });
+        const res = await fetch(url);
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         const text = await res.text();
         state.currentMarkdown = text;
-        setViewMode('preview');
+
+        if (isMd) {
+            if (elements.viewBtnPreview) elements.viewBtnPreview.classList.add('active');
+            if (elements.viewBtnCode)    elements.viewBtnCode.classList.remove('active');
+            setViewMode('preview');
+        } else {
+            if (elements.viewBtnPreview) elements.viewBtnPreview.classList.remove('active');
+            if (elements.viewBtnCode)    elements.viewBtnCode.classList.add('active');
+            const escaped = escapeHtml(text);
+            const prismClass = (lang && lang !== 'none') ? `language-${lang}` : '';
+            elements.contentViewer.innerHTML = `
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-language">${lang && lang !== 'none' ? lang : 'plain text'}</span>
+                        <button class="copy-code-btn" onclick="copyCodeToClipboard(this)">
+                            <i data-lucide="copy" style="width:12px;height:12px;"></i> Copy
+                        </button>
+                    </div>
+                    <pre class="${prismClass}"><code>${escaped}</code></pre>
+                </div>`;
+            lucide.createIcons();
+            if (prismClass) Prism.highlightAllUnder(elements.contentViewer);
+        }
+        elements.contentViewer.scrollTop = 0;
+
     } catch(err) {
-        elements.contentViewer.innerHTML = `<div class="error-container"><h2>Failed to load ${filename}</h2><p>${err.message}</p></div>`;
+        elements.contentViewer.innerHTML = `
+            <div class="error-container">
+                <i data-lucide="alert-triangle" class="welcome-icon"></i>
+                <h2>Failed to load ${filename}</h2>
+                <p>${err.message}</p>
+            </div>`;
         lucide.createIcons();
     }
 }
@@ -556,21 +739,27 @@ async function syncRepository() {
         // Resolve symlink nodes virtually
         const treeNodes = await resolveSymlinks(data.tree);
         
-        // Filter out non-markdown files (except readmes/folders) and store flat mapping
+        // Store ALL blob paths for special-file detection
+        // Build tree from ALL files (not just .md) so non-md files appear in sidebar
         state.flatFiles = {};
-        const markdownNodes = treeNodes.filter(node => {
+        state.allFiles = new Set();
+        const allNodes = treeNodes.filter(node => {
             if (node.type === 'blob') {
+                state.allFiles.add(node.path);
                 if (node.path.endsWith('.md')) {
-                    state.flatFiles[node.path] = node.sha;
-                    return true;
+                    state.flatFiles[node.path] = node.sha; // md-only for wiki-link resolution
                 }
-                return false;
+                // Skip dot-files and binary-likely files from the tree display
+                const name = node.path.split('/').pop();
+                if (name.startsWith('.')) return false;
+                const { isBinary } = getFileLang(node.path);
+                return !isBinary; // exclude images, zips etc. from sidebar
             }
             return true; // Keep folders
         });
 
-        // Construct tree object structure
-        state.fileTree = buildTreeHierarchy(markdownNodes);
+        // Construct tree object structure from all non-binary files
+        state.fileTree = buildTreeHierarchy(allNodes);
         renderFileTree(state.fileTree);
         
         // Trigger initial routing check
@@ -683,31 +872,38 @@ function renderFileTree(nodes, container = elements.fileTree, isRoot = true) {
             
             renderFileTree(node.children, childContainer, false);
         } else {
-            // File item
+            // File item — pick icon and label by type
+            const isMdFile = node.path.endsWith('.md');
+            const iconName = isMdFile ? 'file-text' : 'file';
+            const iconColor = isMdFile ? 'var(--text-secondary)' : 'var(--text-muted)';
+            const label = isMdFile ? node.name.replace('.md', '') : node.name;
+
             item.innerHTML = `
-                <i data-lucide="file-text" style="color: var(--text-secondary)"></i>
-                <span class="node-name">${node.name.replace('.md', '')}</span>
+                <i data-lucide="${iconName}" style="color: ${iconColor}"></i>
+                <span class="node-name">${label}</span>
             `;
-            
+
             item.addEventListener('click', (e) => {
                 e.stopPropagation();
-                
+
                 // Highlight active item
                 document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active'));
                 item.classList.add('active');
-                
-                // Update hash trigger (browser handles loading via hashchange event)
-                window.location.hash = '/' + node.path;
+
+                if (isMdFile) {
+                    // Standard wiki note navigation via hash
+                    window.location.hash = '/' + node.path;
+                } else {
+                    // Non-md file: load with raw file renderer
+                    loadRawFile(node.path);
+                }
 
                 // Close mobile sidebar
                 if (window.innerWidth <= 768) {
                     elements.sidebar.classList.remove('active');
-                    const icon = elements.sidebarToggle.querySelector('i');
-                    icon.setAttribute('data-lucide', 'menu');
-                    lucide.createIcons();
                 }
             });
-            
+
             div.appendChild(item);
         }
         

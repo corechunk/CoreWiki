@@ -158,17 +158,23 @@
                 </div>
                 <div class="form-group">
                     <label for="gh-repo">Repository Name</label>
-                    <select id="gh-repo">
-                        <option value="CoreDocs">CoreDocs (Default)</option>
-                        <option value="edu">edu</option>
-                        <option value="linutils">linutils</option>
-                        <option value="winutils">winutils</option>
-                        <option value="bash-lib">bash-lib</option>
-                        <option value="posix-lib">posix-lib</option>
-                        <option value="dotfile">dotfile</option>
-                        <option value="dotfiles">dotfiles</option>
-                        <option value="hyprland">hyprland</option>
-                    </select>
+                    <div class="repo-combobox" id="repo-combobox">
+                        <input type="text" id="gh-repo" placeholder="e.g. CoreDocs" autocomplete="off">
+                        <button type="button" id="repo-dropdown-btn" class="repo-dropdown-btn" title="Quick pick">
+                            <i data-lucide="chevron-down" style="width:14px;height:14px;"></i>
+                        </button>
+                        <div class="repo-dropdown-list" id="repo-dropdown-list">
+                            <div class="repo-dropdown-item" data-value="CoreDocs">CoreDocs</div>
+                            <div class="repo-dropdown-item" data-value="edu">edu</div>
+                            <div class="repo-dropdown-item" data-value="linutils">linutils</div>
+                            <div class="repo-dropdown-item" data-value="winutils">winutils</div>
+                            <div class="repo-dropdown-item" data-value="bash-lib">bash-lib</div>
+                            <div class="repo-dropdown-item" data-value="posix-lib">posix-lib</div>
+                            <div class="repo-dropdown-item" data-value="dotfile">dotfile</div>
+                            <div class="repo-dropdown-item" data-value="dotfiles">dotfiles</div>
+                            <div class="repo-dropdown-item" data-value="hyprland">hyprland</div>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="gh-branch">Branch</label>
