@@ -133,6 +133,11 @@ const elements = {
     contentViewer: document.getElementById('content-viewer'),
     breadcrumbs: document.getElementById('breadcrumbs'),
     searchInput: document.getElementById('search-input'),
+    searchClearBtn: document.getElementById('search-clear'),
+    searchFilterBar: document.getElementById('search-filter-bar'),
+    filterFiles: document.getElementById('filter-files'),
+    filterFolders: document.getElementById('filter-folders'),
+    sidebarNavLabel: document.getElementById('sidebar-nav-label'),
     themeToggle: document.getElementById('theme-toggle'),
     settingsBtn: document.getElementById('settings-btn'),
     settingsModal: document.getElementById('settings-modal'),
@@ -146,7 +151,11 @@ const elements = {
     ownerInput: document.getElementById('gh-owner'),
     repoInput: document.getElementById('gh-repo'),
     branchInput: document.getElementById('gh-branch'),
-    tokenInput: document.getElementById('gh-token')
+    tokenInput: document.getElementById('gh-token'),
+    // View selector elements
+    viewSelector: document.getElementById('view-selector'),
+    viewBtnPreview: document.getElementById('view-btn-preview'),
+    viewBtnCode: document.getElementById('view-btn-code')
 };
 
 // Register clipboard copy utility globally
@@ -222,9 +231,17 @@ function setupEventListeners() {
     
     // Theme toggle
     elements.themeToggle.addEventListener('click', toggleTheme);
-    
-    // Search filter
+
+    // Search: enter search mode on focus
+    elements.searchInput.addEventListener('focus', enterSearchMode);
     elements.searchInput.addEventListener('input', handleSearch);
+
+    // Search clear / exit button
+    elements.searchClearBtn.addEventListener('click', exitSearchMode);
+
+    // Filter chip toggles
+    elements.filterFiles.addEventListener('click', () => toggleSearchFilter('files'));
+    elements.filterFolders.addEventListener('click', () => toggleSearchFilter('folders'));
 
     // Sidebar Mobile Toggle
     elements.sidebarToggle.addEventListener('click', () => {
@@ -237,6 +254,12 @@ function setupEventListeners() {
         }
         lucide.createIcons();
     });
+
+    // View selector toggle buttons
+    if (elements.viewBtnPreview && elements.viewBtnCode) {
+        elements.viewBtnPreview.addEventListener('click', () => setViewMode('preview'));
+        elements.viewBtnCode.addEventListener('click', () => setViewMode('code'));
+    }
 
     // Close modal when clicking outside
     elements.settingsModal.addEventListener('click', (e) => {
@@ -570,23 +593,11 @@ async function loadNote(path) {
         }
 
         let markdown = await response.text();
+        // Store raw markdown for code view
+        state.currentMarkdown = markdown;
         
-        // Parse Obsidian links
-        markdown = parseWikiLinks(markdown);
-        
-        // Parse basic markdown to HTML
-        let html = mdParser.render(markdown);
-        
-        elements.contentViewer.innerHTML = html;
-        
-        // Render Mermaid Diagrams dynamically
-        await renderMermaidDiagrams(elements.contentViewer);
-        
-        // Trigger Prism syntax highlighting
-        Prism.highlightAllUnder(elements.contentViewer);
-        
-        // Trigger KaTeX math rendering (Inline/Block equations)
-        renderMathInDocument(elements.contentViewer);
+        // Default to preview mode after loading
+        setViewMode('preview');
 
         // Highlight the file in the sidebar tree if loaded from wiki link
         highlightSidebarItem(path);
@@ -717,6 +728,7 @@ function showNoReadmeScreen(folderName) {
         </div>
     `;
     lucide.createIcons();
+    lucide.createIcons();
 }
 
 // Render Math Formulas (LaTeX) using KaTeX
@@ -773,7 +785,7 @@ function renderMathInDocument(element) {
 function renderBreadcrumbs(path) {
     const parts = path.split('/');
     elements.breadcrumbs.innerHTML = '';
-    
+
     parts.forEach((part, index) => {
         if (index > 0) {
             const separator = document.createElement('span');
@@ -781,56 +793,362 @@ function renderBreadcrumbs(path) {
             separator.innerText = ' / ';
             elements.breadcrumbs.appendChild(separator);
         }
-        
-        const span = document.createElement('span');
+
         if (index === parts.length - 1) {
+            // Last part = current file, plain text
+            const span = document.createElement('span');
             span.className = 'current';
             span.innerText = part.replace('.md', '');
+            elements.breadcrumbs.appendChild(span);
         } else {
-            span.innerText = part;
+            // Folder segment with name + dropdown chevron
+            const folderPath = parts.slice(0, index + 1).join('/');
+
+            const group = document.createElement('span');
+            group.className = 'breadcrumb-folder-group';
+
+            // Clickable folder name
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'breadcrumb-link';
+            nameSpan.innerText = part;
+            nameSpan.title = `Open ${part}`;
+            nameSpan.addEventListener('click', () => navigateToFolder(folderPath));
+
+            // Chevron dropdown button
+            const chevron = document.createElement('button');
+            chevron.className = 'breadcrumb-chevron';
+            chevron.title = `Browse ${part}`;
+            chevron.innerHTML = `<i data-lucide="chevron-down" style="width:11px;height:11px;"></i>`;
+            chevron.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showBreadcrumbDropdown(folderPath, chevron);
+            });
+
+            group.appendChild(nameSpan);
+            group.appendChild(chevron);
+            elements.breadcrumbs.appendChild(group);
         }
-        elements.breadcrumbs.appendChild(span);
+    });
+
+    lucide.createIcons();
+}
+
+// Navigate to a folder by path (used by breadcrumb clicks)
+function navigateToFolder(folderPath) {
+    function findNode(nodes, targetPath) {
+        for (const node of nodes) {
+            if (node.path === targetPath) return node;
+            if (node.type === 'directory' && node.children.length > 0) {
+                const found = findNode(node.children, targetPath);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+
+    const node = findNode(state.fileTree, folderPath);
+    if (!node) return;
+
+    const domItem = document.querySelector(`.tree-item[data-path="${folderPath}"]`);
+    if (!domItem) return;
+
+    const childContainer = domItem.nextElementSibling;
+    if (!childContainer) return;
+
+    openFolder(node, childContainer, domItem);
+}
+
+// Show dropdown of a folder's children anchored to an element
+function showBreadcrumbDropdown(folderPath, anchor) {
+    // Close any existing dropdown
+    closeBreadcrumbDropdowns();
+
+    function findNode(nodes, targetPath) {
+        for (const node of nodes) {
+            if (node.path === targetPath) return node;
+            if (node.type === 'directory' && node.children.length > 0) {
+                const found = findNode(node.children, targetPath);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+
+    const node = findNode(state.fileTree, folderPath);
+    if (!node || !node.children.length) return;
+
+    // Sort: folders first, then files
+    const sorted = [...node.children].sort((a, b) => {
+        if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
+        return a.name.localeCompare(b.name);
+    });
+
+    const menu = document.createElement('div');
+    menu.className = 'breadcrumb-dropdown-menu';
+    menu.setAttribute('data-breadcrumb-menu', '1');
+
+    sorted.forEach(child => {
+        const item = document.createElement('div');
+        item.className = 'breadcrumb-dropdown-item';
+
+        const icon = child.type === 'directory' ? 'folder' : 'file-text';
+        const label = child.name.replace('.md', '');
+        item.innerHTML = `<i data-lucide="${icon}" style="width:13px;height:13px;"></i><span>${label}</span>`;
+
+        item.addEventListener('click', () => {
+            closeBreadcrumbDropdowns();
+            if (child.type === 'directory') {
+                navigateToFolder(child.path);
+            } else {
+                window.location.hash = '/' + child.path;
+            }
+        });
+
+        menu.appendChild(item);
+    });
+
+    // Position below anchor
+    document.body.appendChild(menu);
+    lucide.createIcons();
+
+    const rect = anchor.getBoundingClientRect();
+    menu.style.left = `${rect.left + window.scrollX}px`;
+    menu.style.top = `${rect.bottom + window.scrollY + 6}px`;
+
+    // Close on outside click
+    setTimeout(() => {
+        document.addEventListener('click', closeBreadcrumbDropdowns, { once: true });
+    }, 10);
+}
+
+function closeBreadcrumbDropdowns() {
+    document.querySelectorAll('[data-breadcrumb-menu]').forEach(el => el.remove());
+}
+
+// View mode handling (preview vs code)
+function setViewMode(mode) {
+    // Update button active states
+    if (elements.viewBtnPreview && elements.viewBtnCode) {
+        elements.viewBtnPreview.classList.toggle('active', mode === 'preview');
+        elements.viewBtnCode.classList.toggle('active', mode === 'code');
+    }
+
+    // Ensure view selector is visible
+    if (elements.viewSelector) {
+        elements.viewSelector.style.display = 'flex';
+    }
+
+    if (!state.currentMarkdown) return; // nothing loaded yet
+
+    if (mode === 'preview') {
+        // Render markdown with links, mermaid, math, etc.
+        let processed = parseWikiLinks(state.currentMarkdown);
+        const html = mdParser.render(processed);
+        elements.contentViewer.innerHTML = html;
+        lucide.createIcons();
+        renderMermaidDiagrams(elements.contentViewer).then(() => {
+            Prism.highlightAllUnder(elements.contentViewer);
+            renderMathInDocument(elements.contentViewer);
+        });
+    } else if (mode === 'code') {
+        // Show raw markdown with syntax highlighting
+        const escaped = mdParser.utils.escapeHtml(state.currentMarkdown);
+        elements.contentViewer.innerHTML = `
+            <pre class="language-markdown"><code>${escaped}</code></pre>
+        `;
+        lucide.createIcons();
+        Prism.highlightAllUnder(elements.contentViewer);
+    }
+}
+
+// ─── Search Mode ─────────────────────────────────────────────────────────────
+
+const searchState = {
+    active: false,
+    filters: { files: true, folders: true },
+    debounceTimer: null
+};
+
+function enterSearchMode() {
+    if (searchState.active) return;
+    searchState.active = true;
+
+    // Show X button, filter bar; hide nav label
+    elements.searchClearBtn.style.display = 'flex';
+    elements.searchFilterBar.style.display = 'flex';
+    if (elements.sidebarNavLabel) elements.sidebarNavLabel.style.display = 'none';
+
+    lucide.createIcons();
+
+    // Show initial hint
+    renderSearchResults([], '');
+}
+
+function exitSearchMode(afterRender) {
+    if (!searchState.active) {
+        if (typeof afterRender === 'function') afterRender();
+        return;
+    }
+    searchState.active = false;
+
+    // Clear UI immediately (instant feel)
+    elements.searchInput.value = '';
+    elements.searchInput.blur();
+    elements.searchClearBtn.style.display = 'none';
+    elements.searchFilterBar.style.display = 'none';
+    if (elements.sidebarNavLabel) elements.sidebarNavLabel.style.display = '';
+
+    // Defer heavy tree re-render to next frame so the click response feels instant
+    requestAnimationFrame(() => {
+        renderFileTree(state.fileTree);
+        if (typeof afterRender === 'function') afterRender();
     });
 }
 
-// Handle search and filtering
+function toggleSearchFilter(name) {
+    searchState.filters[name] = !searchState.filters[name];
+    const btn = name === 'files' ? elements.filterFiles : elements.filterFolders;
+    btn.classList.toggle('active', searchState.filters[name]);
+    // Re-run search with current query
+    performSearch(elements.searchInput.value);
+}
+
 function handleSearch(e) {
-    const query = e.target.value.toLowerCase().trim();
+    clearTimeout(searchState.debounceTimer);
+    const query = e.target.value;
+    if (!searchState.active) enterSearchMode();
+    searchState.debounceTimer = setTimeout(() => performSearch(query), 220);
+}
+
+function performSearch(query) {
+    const q = query.toLowerCase().trim();
+    const results = [];
+
+    function collectNodes(nodes) {
+        for (const node of nodes) {
+            const nameMatch = node.name.toLowerCase().includes(q);
+            const pathMatch = node.path.toLowerCase().includes(q);
+            const matches = !q || nameMatch || pathMatch;
+
+            if (matches) {
+                if (node.type === 'file' && searchState.filters.files) results.push(node);
+                if (node.type === 'directory' && searchState.filters.folders) results.push(node);
+            }
+            if (node.type === 'directory' && node.children.length > 0) {
+                collectNodes(node.children);
+            }
+        }
+    }
+
+    collectNodes(state.fileTree);
+    renderSearchResults(results, q);
+}
+
+function renderSearchResults(results, query = '') {
+    const container = elements.fileTree;
+    container.innerHTML = '';
+
     if (!query) {
-        // Restore full tree rendering
-        renderFileTree(state.fileTree);
+        container.innerHTML = `
+            <div class="search-empty-state">
+                <i data-lucide="search" style="width:26px;height:26px;"></i>
+                <span>Start typing to search...</span>
+            </div>`;
+        lucide.createIcons();
         return;
     }
 
-    // Filter file tree recursively
-    function filterNodes(nodes) {
-        const results = [];
-        nodes.forEach(node => {
-            if (node.type === 'directory') {
-                const matchedChildren = filterNodes(node.children);
-                if (matchedChildren.length > 0 || node.name.toLowerCase().includes(query)) {
-                    const clonedNode = { ...node, children: matchedChildren };
-                    results.push(clonedNode);
-                }
-            } else {
-                if (node.name.toLowerCase().includes(query) || node.path.toLowerCase().includes(query)) {
-                    results.push(node);
-                }
-            }
-        });
-        return results;
+    if (results.length === 0) {
+        container.innerHTML = `
+            <div class="search-empty-state">
+                <i data-lucide="search-x" style="width:26px;height:26px;"></i>
+                <span>No results for <strong>"${escapeHtml(query)}"</strong></span>
+            </div>`;
+        lucide.createIcons();
+        return;
     }
 
-    const filtered = filterNodes(state.fileTree);
-    renderFileTree(filtered);
-    
-    // Automatically expand all directory results to show matches
-    document.querySelectorAll('.tree-children').forEach(el => {
-        el.style.display = 'block';
+    // Results count
+    const countEl = document.createElement('div');
+    countEl.className = 'search-results-count';
+    countEl.textContent = `${results.length} result${results.length !== 1 ? 's' : ''}`;
+    container.appendChild(countEl);
+
+    const list = document.createElement('div');
+    list.className = 'search-results-list';
+
+    results.forEach(node => {
+        const item = document.createElement('div');
+        item.className = 'search-result-item';
+
+        const isDir = node.type === 'directory';
+        const displayName = node.name.replace('.md', '');
+        const pathParts = node.path.split('/');
+        const parentPath = pathParts.slice(0, -1).join(' / ');
+
+        const highlightedName = highlightMatch(displayName, query);
+
+        item.innerHTML = `
+            <div class="search-result-icon">
+                <i data-lucide="${isDir ? 'folder' : 'file-text'}" 
+                   style="width:14px;height:14px;color:${isDir ? 'var(--primary-color)' : 'var(--text-muted)'};"></i>
+            </div>
+            <div class="search-result-content">
+                <div class="search-result-name">${highlightedName}</div>
+                ${parentPath ? `<div class="search-result-path">${parentPath}</div>` : ''}
+            </div>`;
+
+        item.addEventListener('click', () => {
+            if (isDir) {
+                // Find README among children
+                const readme = node.children.find(
+                    c => c.type === 'file' && c.name.toLowerCase() === 'readme.md'
+                );
+
+                if (readme) {
+                    // Start navigating immediately
+                    window.location.hash = '/' + readme.path;
+                } else {
+                    showNoReadmeScreen(node.name);
+                }
+
+                // Restore tree in background, then expand the folder and scroll it into view
+                exitSearchMode(() => {
+                    const domItem = document.querySelector(`.tree-item[data-path="${node.path}"]`);
+                    if (domItem) {
+                        const childContainer = domItem.nextElementSibling;
+                        domItem.classList.remove('collapsed');
+                        if (childContainer) childContainer.style.display = 'block';
+                        domItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                    if (readme) highlightSidebarItem(readme.path);
+                });
+
+            } else {
+                // File: start the navigation immediately (fetch begins at once)
+                window.location.hash = '/' + node.path;
+
+                // Restore tree in background, then highlight the item
+                exitSearchMode(() => highlightSidebarItem(node.path));
+            }
+        });
+
+        list.appendChild(item);
     });
-    document.querySelectorAll('.tree-item').forEach(el => {
-        el.classList.remove('collapsed');
-    });
+
+    container.appendChild(list);
+    lucide.createIcons();
+}
+
+function highlightMatch(text, query) {
+    if (!query) return text;
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return text.replace(new RegExp(`(${escaped})`, 'gi'),
+        '<mark class="search-highlight">$1</mark>');
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 // Utilities for UI state

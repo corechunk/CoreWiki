@@ -50,11 +50,24 @@
         <!-- Sidebar -->
         <aside class="app-sidebar" id="sidebar">
             <div class="search-box">
-                <i data-lucide="search" class="search-icon"></i>
+                <i data-lucide="search" class="search-icon" id="search-icon-indicator"></i>
                 <input type="text" id="search-input" placeholder="Search notes...">
+                <button id="search-clear" class="search-clear-btn" title="Exit search" style="display:none">
+                    <i data-lucide="x" style="width:14px;height:14px;"></i>
+                </button>
+            </div>
+
+            <!-- Search filters (shown only in search mode) -->
+            <div class="search-filter-bar" id="search-filter-bar" style="display:none">
+                <button class="filter-chip active" id="filter-files">
+                    <i data-lucide="file-text" style="width:12px;height:12px;"></i> Files
+                </button>
+                <button class="filter-chip active" id="filter-folders">
+                    <i data-lucide="folder" style="width:12px;height:12px;"></i> Folders
+                </button>
             </div>
             
-            <div class="sidebar-nav-header">
+            <div class="sidebar-nav-header" id="sidebar-nav-label">
                 <span>Navigation</span>
                 <button id="refresh-tree" class="btn-icon-small" title="Refresh files">
                     <i data-lucide="refresh-cw"></i>
@@ -75,10 +88,22 @@
 
         <!-- Main Content Area -->
         <main class="app-content">
-            <!-- Breadcrumbs -->
-            <nav class="breadcrumbs" id="breadcrumbs">
-                <span>Select a note from the sidebar to begin</span>
-            </nav>
+            <!-- Toolbar/Breadcrumb Bar -->
+            <div class="content-toolbar">
+                <nav class="breadcrumbs" id="breadcrumbs">
+                    <span>Select a note from the sidebar to begin</span>
+                </nav>
+                
+                <div class="view-selector" id="view-selector" style="display: flex;">
+
+                    <button class="view-btn active" id="view-btn-preview" data-view="preview">
+                        <i data-lucide="eye" style="width:14px;height:14px;"></i> Preview
+                    </button>
+                    <button class="view-btn" id="view-btn-code" data-view="code">
+                        <i data-lucide="code" style="width:14px;height:14px;"></i> Code
+                    </button>
+                </div>
+            </div>
 
             <!-- Viewer Panel -->
             <article class="markdown-body glass-panel" id="content-viewer">
