@@ -1341,6 +1341,54 @@ mark.search-highlight {
     font-weight: 600;
 }
 
+/* ── Asset Viewer (images, video, audio) ──────────────── */
+.asset-viewer {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem;
+    min-height: 60vh;
+}
+
+.asset-viewer-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.asset-img {
+    max-width: 100%;
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    object-fit: contain;
+    display: block;
+}
+
+.asset-video {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 10px;
+    background: #000;
+    display: block;
+}
+
+.asset-audio {
+    width: 100%;
+    display: block;
+    border-radius: 8px;
+}
+
+.asset-error {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.9rem;
+}
+
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
     width: 6px;

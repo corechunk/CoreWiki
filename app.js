@@ -467,11 +467,20 @@ const IMAGE_EXTS = new Set([
     'png','jpg','jpeg','gif','webp','svg','ico','bmp'
 ]);
 
-// True binary blobs — hidden from sidebar entirely
+// Video extensions — rendered as <video> player
+const VIDEO_EXTS = new Set([
+    'mp4','webm','mov','ogv','m4v'
+]);
+
+// Audio extensions — rendered as <audio> player
+const AUDIO_EXTS = new Set([
+    'mp3','wav','ogg','flac','m4a','aac'
+]);
+
+// True binary blobs — hidden from sidebar, cannot display
 const BLOB_EXTS = new Set([
     'pdf','zip','tar','gz','7z','rar',
     'exe','dll','so','bin','wasm',
-    'mp3','mp4','wav','ogg','mov',
     'ttf','woff','woff2','eot'
 ]);
 
@@ -481,24 +490,23 @@ function getFileLang(filename) {
     const ext = dotIdx >= 0 ? lower.slice(dotIdx + 1) : '';
     const justName = lower.split('/').pop();
 
-    // True blob (non-displayable binary)?
-    if (ext && BLOB_EXTS.has(ext)) return { lang: null, isBinary: true, isImage: false, isMd: false };
-
-    // Image file?
-    if (ext && IMAGE_EXTS.has(ext)) return { lang: null, isBinary: false, isImage: true, isMd: false };
-
+    // True blob (non-displayable)?
+    if (ext && BLOB_EXTS.has(ext))  return { lang: null, isBinary: true,  isImage: false, isVideo: false, isAudio: false, isMd: false };
+    // Image?
+    if (ext && IMAGE_EXTS.has(ext)) return { lang: null, isBinary: false, isImage: true,  isVideo: false, isAudio: false, isMd: false };
+    // Video?
+    if (ext && VIDEO_EXTS.has(ext)) return { lang: null, isBinary: false, isImage: false, isVideo: true,  isAudio: false, isMd: false };
+    // Audio?
+    if (ext && AUDIO_EXTS.has(ext)) return { lang: null, isBinary: false, isImage: false, isVideo: false, isAudio: true,  isMd: false };
     // Markdown?
-    if (ext === 'md' || ext === 'markdown') return { lang: 'markdown', isBinary: false, isImage: false, isMd: true };
-
+    if (ext === 'md' || ext === 'markdown') return { lang: 'markdown', isBinary: false, isImage: false, isVideo: false, isAudio: false, isMd: true };
     // Extension map
-    if (ext && EXT_LANG[ext]) return { lang: EXT_LANG[ext], isBinary: false, isImage: false, isMd: false };
-
-    // Filename override (no extension or special names)
+    if (ext && EXT_LANG[ext]) return { lang: EXT_LANG[ext], isBinary: false, isImage: false, isVideo: false, isAudio: false, isMd: false };
+    // Filename override
     const nameKey = justName.replace(/\.[^.]*$/, '').toLowerCase();
-    if (FILENAME_LANG[nameKey]) return { lang: FILENAME_LANG[nameKey], isBinary: false, isMd: false };
-
+    if (FILENAME_LANG[nameKey]) return { lang: FILENAME_LANG[nameKey], isBinary: false, isImage: false, isVideo: false, isAudio: false, isMd: false };
     // Unknown — plain text
-    return { lang: 'none', isBinary: false, isMd: false };
+    return { lang: 'none', isBinary: false, isImage: false, isVideo: false, isAudio: false, isMd: false };
 }
 
 // Special repo files to look for
@@ -575,40 +583,95 @@ function scanRepoFiles() {
     lucide.createIcons();
 }
 
-// Load any file (md or non-md) into the content viewer
+// Load any file into the content viewer
 async function loadRawFile(filename) {
-    const { lang, isBinary, isMd } = getFileLang(filename);
+    const { lang, isBinary, isImage, isVideo, isAudio, isMd } = getFileLang(filename);
     state.activePath = filename;
     state.currentFileIsMd = isMd;
     elements.breadcrumbs.innerHTML = `<span class="current">${filename}</span>`;
 
-    // Update view-selector: lock Preview for non-md
-    if (elements.viewSelector) elements.viewSelector.style.display = 'flex';
-    if (elements.viewBtnPreview) {
+    // View selector: hide entirely for media/binary, lock Preview for code
+    const isMedia = isImage || isVideo || isAudio;
+    if (elements.viewSelector) elements.viewSelector.style.display = isMedia ? 'none' : 'flex';
+    if (elements.viewBtnPreview && !isMedia) {
         elements.viewBtnPreview.disabled = !isMd;
         elements.viewBtnPreview.style.opacity = isMd ? '' : '0.35';
         elements.viewBtnPreview.title = isMd ? 'Preview' : 'Preview not available for this file type';
     }
 
-    // Binary: show notice, no fetch needed
+    const rawUrl = `https://raw.githubusercontent.com/${state.config.owner}/${state.config.repo}/${state.config.branch}/${filename}`;
+    const fname = filename.split('/').pop();
+
+    // — IMAGE —
+    if (isImage) {
+        elements.contentViewer.innerHTML = `
+            <div class="asset-viewer">
+                <div class="asset-viewer-label">
+                    <i data-lucide="image" style="width:14px;height:14px;"></i>
+                    <span>${fname}</span>
+                </div>
+                <img src="${rawUrl}" alt="${fname}" class="asset-img"
+                     onerror="this.parentElement.innerHTML='<p class=\'asset-error\'>Failed to load image.</p>'">
+            </div>`;
+        lucide.createIcons();
+        elements.contentViewer.scrollTop = 0;
+        return;
+    }
+
+    // — VIDEO —
+    if (isVideo) {
+        elements.contentViewer.innerHTML = `
+            <div class="asset-viewer">
+                <div class="asset-viewer-label">
+                    <i data-lucide="film" style="width:14px;height:14px;"></i>
+                    <span>${fname}</span>
+                </div>
+                <video controls class="asset-video">
+                    <source src="${rawUrl}">
+                    Your browser does not support video playback.
+                </video>
+            </div>`;
+        lucide.createIcons();
+        elements.contentViewer.scrollTop = 0;
+        return;
+    }
+
+    // — AUDIO —
+    if (isAudio) {
+        elements.contentViewer.innerHTML = `
+            <div class="asset-viewer">
+                <div class="asset-viewer-label">
+                    <i data-lucide="music" style="width:14px;height:14px;"></i>
+                    <span>${fname}</span>
+                </div>
+                <audio controls class="asset-audio">
+                    <source src="${rawUrl}">
+                    Your browser does not support audio playback.
+                </audio>
+            </div>`;
+        lucide.createIcons();
+        elements.contentViewer.scrollTop = 0;
+        return;
+    }
+
+    // — TRUE BINARY (zip, exe, etc.) —
     if (isBinary) {
         elements.contentViewer.innerHTML = `
             <div class="welcome-screen">
                 <i data-lucide="file-x" class="welcome-icon" style="color:var(--text-muted)"></i>
-                <h2>${filename}</h2>
-                <p>Binary file — cannot display content.</p>
+                <h2>${fname}</h2>
+                <p style="color:var(--text-muted)">Binary file — cannot display content.</p>
             </div>`;
         lucide.createIcons();
         return;
     }
 
-    elements.contentViewer.innerHTML = `<div class="loading-spinner"><i data-lucide="loader" class="spin"></i> Loading ${filename}...</div>`;
+    // — TEXT / CODE / MARKDOWN —
+    elements.contentViewer.innerHTML = `<div class="loading-spinner"><i data-lucide="loader" class="spin"></i> Loading ${fname}...</div>`;
     lucide.createIcons();
 
     try {
-        // Use plain fetch (no API Accept header) — same as loadNote
-        const url = `https://raw.githubusercontent.com/${state.config.owner}/${state.config.repo}/${state.config.branch}/${filename}`;
-        const res = await fetch(url);
+        const res = await fetch(rawUrl);
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         const text = await res.text();
         state.currentMarkdown = text;
@@ -641,7 +704,7 @@ async function loadRawFile(filename) {
         elements.contentViewer.innerHTML = `
             <div class="error-container">
                 <i data-lucide="alert-triangle" class="welcome-icon"></i>
-                <h2>Failed to load ${filename}</h2>
+                <h2>Failed to load ${fname}</h2>
                 <p>${err.message}</p>
             </div>`;
         lucide.createIcons();
@@ -901,9 +964,14 @@ function renderFileTree(nodes, container = elements.fileTree, isRoot = true) {
             
             renderFileTree(node.children, childContainer, false);
         } else {
-            // File item — pick icon and label by type
-            const isMdFile = node.path.endsWith('.md');
-            const iconName = isMdFile ? 'file-text' : 'file';
+            // File item — icon and label by type
+            const fileType = getFileLang(node.path);
+            const isMdFile = fileType.isMd;
+            const iconName = isMdFile           ? 'file-text'
+                           : fileType.isImage   ? 'image'
+                           : fileType.isVideo   ? 'film'
+                           : fileType.isAudio   ? 'music'
+                           : 'file';
             const iconColor = isMdFile ? 'var(--text-secondary)' : 'var(--text-muted)';
             const label = isMdFile ? node.name.replace('.md', '') : node.name;
 
@@ -914,20 +982,13 @@ function renderFileTree(nodes, container = elements.fileTree, isRoot = true) {
 
             item.addEventListener('click', (e) => {
                 e.stopPropagation();
-
-                // Highlight active item
                 document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active'));
                 item.classList.add('active');
-
                 if (isMdFile) {
-                    // Standard wiki note navigation via hash
                     window.location.hash = '/' + node.path;
                 } else {
-                    // Non-md file: load with raw file renderer
                     loadRawFile(node.path);
                 }
-
-                // Close mobile sidebar
                 if (window.innerWidth <= 768) {
                     elements.sidebar.classList.remove('active');
                 }
