@@ -247,7 +247,7 @@ async function resolveSymlinks(treeNodes) {
     for (const sym of symlinks) {
         try {
             const rawUrl = `https://raw.githubusercontent.com/${state.config.owner}/${state.config.repo}/${state.config.branch}/${sym.path}`;
-            const res = await fetch(rawUrl, { headers: getFetchHeaders() });
+            const res = await fetch(rawUrl);
             if (!res.ok) continue;
             
             const targetRelPath = (await res.text()).trim();
@@ -489,7 +489,7 @@ async function loadNote(path) {
 
     try {
         const rawUrl = `https://raw.githubusercontent.com/${state.config.owner}/${state.config.repo}/${state.config.branch}/${realPath}`;
-        const response = await fetch(rawUrl, { headers: getFetchHeaders() });
+        const response = await fetch(rawUrl);
         
         if (!response.ok) {
             throw new Error(`Failed to load file contents: ${response.status}`);
