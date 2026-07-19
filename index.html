@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoreDocs Viewer</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX CSS for Math Formulas -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    
+    <!-- PrismJS Theme (Okaidia/Dark) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Lucide Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+    
+    <!-- Markdown-it & Plugins -->
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@13.0.1/dist/markdown-it.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+</head>
+<body class="dark-theme">
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-logo">
+            <i data-lucide="library" class="logo-icon"></i>
+            <h1>CoreDocs <span class="badge">Viewer</span></h1>
+        </div>
+        <div class="header-actions">
+            <button id="theme-toggle" class="btn-icon" title="Toggle Theme">
+                <i data-lucide="sun" class="sun-icon"></i>
+                <i data-lucide="moon" class="moon-icon"></i>
+            </button>
+            <button id="settings-btn" class="btn-icon" title="Repository Settings">
+                <i data-lucide="settings"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="app-sidebar" id="sidebar">
+            <div class="search-box">
+                <i data-lucide="search" class="search-icon"></i>
+                <input type="text" id="search-input" placeholder="Search notes...">
+            </div>
+            
+            <div class="sidebar-nav-header">
+                <span>Navigation</span>
+                <button id="refresh-tree" class="btn-icon-small" title="Refresh files">
+                    <i data-lucide="refresh-cw"></i>
+                </button>
+            </div>
+            
+            <div class="file-tree" id="file-tree">
+                <div class="loading-spinner">
+                    <i data-lucide="loader" class="spin"></i> Loading repository tree...
+                </div>
+            </div>
+        </aside>
+
+        <!-- Sidebar Toggle for Mobile -->
+        <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Toggle Sidebar">
+            <i data-lucide="menu"></i>
+        </button>
+
+        <!-- Main Content Area -->
+        <main class="app-content">
+            <!-- Breadcrumbs -->
+            <nav class="breadcrumbs" id="breadcrumbs">
+                <span>Select a note from the sidebar to begin</span>
+            </nav>
+
+            <!-- Viewer Panel -->
+            <article class="markdown-body glass-panel" id="content-viewer">
+                <div class="welcome-screen">
+                    <i data-lucide="book-open" class="welcome-icon"></i>
+                    <h2>Welcome to CoreDocs Viewer</h2>
+                    <p>A decoupled Single Page Application to browse your Obsidian notes / technical wiki directly from your GitHub repository.</p>
+                    <button id="configure-now-btn" class="btn-primary">Configure Repository</button>
+                </div>
+            </article>
+        </main>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal glass-panel">
+            <div class="modal-header">
+                <h2><i data-lucide="sliders" class="header-icon"></i> Repository Configuration</h2>
+                <button id="close-settings" class="btn-icon"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="gh-owner">GitHub Owner / Username</label>
+                    <input type="text" id="gh-owner" placeholder="e.g., your-github-username">
+                </div>
+                <div class="form-group">
+                    <label for="gh-repo">Repository Name</label>
+                    <input type="text" id="gh-repo" placeholder="e.g., core-docs">
+                </div>
+                <div class="form-group">
+                    <label for="gh-branch">Branch</label>
+                    <input type="text" id="gh-branch" placeholder="main" value="main">
+                </div>
+                <div class="form-group">
+                    <label for="gh-token">
+                        Personal Access Token (Optional)
+                        <span class="tooltip" title="Increases rate limits for public repos, or grants access to private repos. Stores locally.">
+                            <i data-lucide="help-circle"></i>
+                        </span>
+                    </label>
+                    <input type="password" id="gh-token" placeholder="github_pat_...">
+                </div>
+                <div class="alert-info">
+                    <i data-lucide="info"></i>
+                    <p>Configuration is saved locally in your browser's <code>localStorage</code> and never sent to any external server other than GitHub API.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="save-settings" class="btn-primary">Save & Sync</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PrismJS Syntax Highlighter -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    
+    <!-- Main Application Scripts -->
+    <script src="app.js"></script>
+</body>
+</html>
