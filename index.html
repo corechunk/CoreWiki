@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CoreDocs Viewer</title>
+    <title>CoreWiki – gh repo viewer</title>
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,25 +28,33 @@
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10.2.4/dist/mermaid.min.js"></script>
 </head>
 <body class="dark-theme">
+
     <!-- Header -->
     <header class="app-header">
-        <div class="header-logo">
-            <i data-lucide="library" class="logo-icon"></i>
-            <h1>CoreDocs <span class="badge">Viewer</span></h1>
+        <div class="header-left">
+            <!-- Sidebar collapse toggle (desktop + mobile) -->
+            <button id="sidebar-toggle" class="btn-icon sidebar-toggle-btn" title="Toggle Sidebar">
+                <i data-lucide="panel-left"></i>
+            </button>
+            <div class="header-logo">
+                <i data-lucide="library" class="logo-icon"></i>
+                <h1 id="header-title">CoreWiki <span class="badge" id="header-badge">gh repo viewer</span></h1>
+            </div>
         </div>
         <div class="header-actions">
             <button id="theme-toggle" class="btn-icon" title="Toggle Theme">
                 <i data-lucide="sun" class="sun-icon"></i>
                 <i data-lucide="moon" class="moon-icon"></i>
             </button>
-            <button id="settings-btn" class="btn-icon" title="Repository Settings">
-                <i data-lucide="settings"></i>
+            <!-- Meta panel trigger -->
+            <button id="meta-btn" class="btn-icon" title="Repo Info & Settings">
+                <i data-lucide="sliders-horizontal"></i>
             </button>
         </div>
     </header>
 
     <!-- Main Container -->
-    <div class="app-layout">
+    <div class="app-layout" id="app-layout">
         <!-- Sidebar -->
         <aside class="app-sidebar" id="sidebar">
             <div class="search-box">
@@ -81,11 +89,6 @@
             </div>
         </aside>
 
-        <!-- Sidebar Toggle for Mobile -->
-        <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Toggle Sidebar">
-            <i data-lucide="menu"></i>
-        </button>
-
         <!-- Main Content Area -->
         <main class="app-content">
             <!-- Toolbar/Breadcrumb Bar -->
@@ -95,7 +98,6 @@
                 </nav>
                 
                 <div class="view-selector" id="view-selector" style="display: flex;">
-
                     <button class="view-btn active" id="view-btn-preview" data-view="preview">
                         <i data-lucide="eye" style="width:14px;height:14px;"></i> Preview
                     </button>
@@ -109,7 +111,7 @@
             <article class="markdown-body glass-panel" id="content-viewer">
                 <div class="welcome-screen">
                     <i data-lucide="book-open" class="welcome-icon"></i>
-                    <h2>Welcome to CoreDocs Viewer</h2>
+                    <h2>Welcome to CoreWiki Viewer</h2>
                     <p>A decoupled Single Page Application to browse your Obsidian notes / technical wiki directly from your GitHub repository.</p>
                     <button id="configure-now-btn" class="btn-primary">Configure Repository</button>
                 </div>
@@ -117,14 +119,39 @@
         </main>
     </div>
 
-    <!-- Settings Modal -->
-    <div class="modal-overlay" id="settings-modal">
-        <div class="modal glass-panel">
-            <div class="modal-header">
-                <h2><i data-lucide="sliders" class="header-icon"></i> Repository Configuration</h2>
-                <button id="close-settings" class="btn-icon"><i data-lucide="x"></i></button>
-            </div>
-            <div class="modal-body">
+    <!-- ═══════════════════════════════════════════════════════════
+         RIGHT META PANEL (glass, slides from right)
+    ═══════════════════════════════════════════════════════════ -->
+    <div class="meta-overlay" id="meta-overlay"></div>
+    <div class="meta-panel glass-panel" id="meta-panel">
+
+        <!-- Panel Header -->
+        <div class="meta-panel-header">
+            <h2 class="meta-panel-title">
+                <i data-lucide="sliders-horizontal" style="width:18px;height:18px;color:var(--primary-color)"></i>
+                <span id="meta-panel-repo-name">CoreWiki</span>
+            </h2>
+            <button id="meta-close" class="btn-icon"><i data-lucide="x"></i></button>
+        </div>
+
+        <!-- Nav tabs -->
+        <div class="meta-tabs">
+            <button class="meta-tab active" data-tab="settings">
+                <i data-lucide="settings" style="width:14px;height:14px;"></i> Settings
+            </button>
+            <button class="meta-tab" data-tab="appinfo">
+                <i data-lucide="info" style="width:14px;height:14px;"></i> About Viewer
+            </button>
+            <button class="meta-tab" data-tab="repofiles">
+                <i data-lucide="files" style="width:14px;height:14px;"></i> Repo Files
+            </button>
+        </div>
+
+        <!-- Panel Body -->
+        <div class="meta-body">
+
+            <!-- ── Tab: Settings ── -->
+            <div class="meta-tab-content active" id="tab-settings">
                 <div class="form-group">
                     <label for="gh-owner">GitHub Owner / Username</label>
                     <input type="text" id="gh-owner" placeholder="e.g., your-github-username">
@@ -158,12 +185,77 @@
                 </div>
                 <div class="alert-info">
                     <i data-lucide="info"></i>
-                    <p>Configuration is saved locally in your browser's <code>localStorage</code> and never sent to any external server other than GitHub API.</p>
+                    <p>Config is saved in your browser's <code>localStorage</code> only.</p>
+                </div>
+                <button id="save-settings" class="btn-primary" style="width:100%;margin-top:0.5rem;">
+                    <i data-lucide="save" style="width:14px;height:14px;"></i> Save &amp; Sync
+                </button>
+            </div>
+
+            <!-- ── Tab: About Viewer (App Info) ── -->
+            <div class="meta-tab-content" id="tab-appinfo">
+                <div class="appinfo-hero">
+                    <i data-lucide="library" class="appinfo-icon"></i>
+                    <h3>CoreWiki Viewer</h3>
+                    <p class="appinfo-tagline">A beautiful GitHub-powered wiki reader</p>
+                </div>
+
+                <div class="appinfo-features">
+                    <div class="appinfo-feature">
+                        <i data-lucide="folder-tree" style="color:var(--primary-color)"></i>
+                        <div>
+                            <strong>File Tree Navigation</strong>
+                            <span>Collapsible sidebar with search, filters &amp; breadcrumbs</span>
+                        </div>
+                    </div>
+                    <div class="appinfo-feature">
+                        <i data-lucide="file-text" style="color:var(--accent-color)"></i>
+                        <div>
+                            <strong>Markdown Rendering</strong>
+                            <span>Full markdown with code highlighting, mermaid &amp; math</span>
+                        </div>
+                    </div>
+                    <div class="appinfo-feature">
+                        <i data-lucide="link" style="color:#10b981"></i>
+                        <div>
+                            <strong>Wiki Links</strong>
+                            <span>Obsidian-style <code>[[WikiLinks]]</code> resolve automatically</span>
+                        </div>
+                    </div>
+                    <div class="appinfo-feature">
+                        <i data-lucide="git-branch" style="color:#f59e0b"></i>
+                        <div>
+                            <strong>Any GitHub Repo</strong>
+                            <span>Point to any public or private repo &amp; branch</span>
+                        </div>
+                    </div>
+                    <div class="appinfo-feature">
+                        <i data-lucide="moon" style="color:#6366f1"></i>
+                        <div>
+                            <strong>Dark &amp; Light Themes</strong>
+                            <span>Glassmorphic design with smooth theme switching</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="appinfo-meta">
+                    <span>Built with vanilla JS · No frameworks · No build step</span>
+                    <a href="https://github.com/corechunk/CoreWiki" target="_blank" class="appinfo-link">
+                        <i data-lucide="github" style="width:13px;height:13px;"></i> View on GitHub
+                    </a>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button id="save-settings" class="btn-primary">Save & Sync</button>
+
+            <!-- ── Tab: Repo Files (LICENSE, ABOUT, CONTRIBUTING etc.) ── -->
+            <div class="meta-tab-content" id="tab-repofiles">
+                <p class="repofiles-hint">Special files detected in the current repo:</p>
+                <div id="repofiles-list" class="repofiles-list">
+                    <div class="loading-spinner" style="padding:2rem 0;">
+                        <i data-lucide="loader" class="spin"></i> Scanning repo...
+                    </div>
+                </div>
             </div>
+
         </div>
     </div>
 

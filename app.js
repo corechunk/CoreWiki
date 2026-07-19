@@ -139,20 +139,29 @@ const elements = {
     filterFolders: document.getElementById('filter-folders'),
     sidebarNavLabel: document.getElementById('sidebar-nav-label'),
     themeToggle: document.getElementById('theme-toggle'),
-    settingsBtn: document.getElementById('settings-btn'),
-    settingsModal: document.getElementById('settings-modal'),
-    closeSettings: document.getElementById('close-settings'),
-    saveSettings: document.getElementById('save-settings'),
-    configureNowBtn: document.getElementById('configure-now-btn'),
-    refreshTree: document.getElementById('refresh-tree'),
+    // Sidebar
     sidebar: document.getElementById('sidebar'),
     sidebarToggle: document.getElementById('sidebar-toggle'),
+    appLayout: document.getElementById('app-layout'),
+    // Header
+    headerTitle: document.getElementById('header-title'),
+    headerBadge: document.getElementById('header-badge'),
+    // Meta panel
+    metaBtn: document.getElementById('meta-btn'),
+    metaPanel: document.getElementById('meta-panel'),
+    metaOverlay: document.getElementById('meta-overlay'),
+    metaClose: document.getElementById('meta-close'),
+    metaPanelRepoName: document.getElementById('meta-panel-repo-name'),
+    repofilesList: document.getElementById('repofiles-list'),
     // Form Inputs
     ownerInput: document.getElementById('gh-owner'),
     repoInput: document.getElementById('gh-repo'),
     branchInput: document.getElementById('gh-branch'),
     tokenInput: document.getElementById('gh-token'),
-    // View selector elements
+    saveSettings: document.getElementById('save-settings'),
+    configureNowBtn: document.getElementById('configure-now-btn'),
+    refreshTree: document.getElementById('refresh-tree'),
+    // View selector
     viewSelector: document.getElementById('view-selector'),
     viewBtnPreview: document.getElementById('view-btn-preview'),
     viewBtnCode: document.getElementById('view-btn-code')
@@ -184,10 +193,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Watch browser history navigation
     window.addEventListener('hashchange', handleRouting);
-    
-    // Automatically open modal if config is empty
+
+    // Restore sidebar collapsed state
+    const sidebarCollapsed = localStorage.getItem('sidebar_collapsed') === 'true';
+    if (sidebarCollapsed) {
+        elements.appLayout.classList.add('sidebar-collapsed');
+    }
+    // On mobile, always start collapsed
+    if (window.innerWidth <= 768) {
+        elements.appLayout.classList.add('sidebar-collapsed');
+    }
+
+    // Automatically open meta panel if config is empty
     if (!state.config.owner || !state.config.repo) {
-        showSettingsModal();
+        openMetaPanel('settings');
     } else {
         syncRepository();
     }
@@ -218,53 +237,41 @@ function loadDefaultNote() {
 
 // Configure listeners
 function setupEventListeners() {
-    // Modal controls
-    elements.settingsBtn.addEventListener('click', showSettingsModal);
-    elements.closeSettings.addEventListener('click', hideSettingsModal);
+    // Meta panel
+    elements.metaBtn.addEventListener('click', () => openMetaPanel());
+    elements.metaClose.addEventListener('click', closeMetaPanel);
+    elements.metaOverlay.addEventListener('click', closeMetaPanel);
     elements.saveSettings.addEventListener('click', saveSettingsFromForm);
     if (elements.configureNowBtn) {
-        elements.configureNowBtn.addEventListener('click', showSettingsModal);
+        elements.configureNowBtn.addEventListener('click', () => openMetaPanel('settings'));
     }
-    
+
+    // Meta tabs
+    document.querySelectorAll('.meta-tab').forEach(tab => {
+        tab.addEventListener('click', () => switchMetaTab(tab.dataset.tab));
+    });
+
+    // Sidebar toggle (desktop collapse + mobile open/close)
+    elements.sidebarToggle.addEventListener('click', toggleSidebar);
+
     // Refresh & sync
     elements.refreshTree.addEventListener('click', syncRepository);
-    
+
     // Theme toggle
     elements.themeToggle.addEventListener('click', toggleTheme);
 
-    // Search: enter search mode on focus
+    // Search
     elements.searchInput.addEventListener('focus', enterSearchMode);
     elements.searchInput.addEventListener('input', handleSearch);
-
-    // Search clear / exit button
     elements.searchClearBtn.addEventListener('click', exitSearchMode);
-
-    // Filter chip toggles
     elements.filterFiles.addEventListener('click', () => toggleSearchFilter('files'));
     elements.filterFolders.addEventListener('click', () => toggleSearchFilter('folders'));
 
-    // Sidebar Mobile Toggle
-    elements.sidebarToggle.addEventListener('click', () => {
-        elements.sidebar.classList.toggle('active');
-        const icon = elements.sidebarToggle.querySelector('i');
-        if (elements.sidebar.classList.contains('active')) {
-            icon.setAttribute('data-lucide', 'x');
-        } else {
-            icon.setAttribute('data-lucide', 'menu');
-        }
-        lucide.createIcons();
-    });
-
-    // View selector toggle buttons
+    // View selector
     if (elements.viewBtnPreview && elements.viewBtnCode) {
         elements.viewBtnPreview.addEventListener('click', () => setViewMode('preview'));
         elements.viewBtnCode.addEventListener('click', () => setViewMode('code'));
     }
-
-    // Close modal when clicking outside
-    elements.settingsModal.addEventListener('click', (e) => {
-        if (e.target === elements.settingsModal) hideSettingsModal();
-    });
 }
 
 // LocalStorage configuration management
@@ -273,10 +280,10 @@ function loadConfig() {
     if (saved) {
         state.config = { ...state.config, ...JSON.parse(saved) };
     }
-    
+
     // Populate form inputs
     elements.ownerInput.value = state.config.owner || '';
-    elements.repoInput.value = state.config.repo || '';
+    elements.repoInput.value = state.config.repo || 'CoreDocs';
     elements.branchInput.value = state.config.branch || 'main';
     elements.tokenInput.value = state.config.token || '';
 
@@ -287,24 +294,157 @@ function loadConfig() {
         document.body.classList.remove('dark-theme');
         document.body.classList.add('light-theme');
     }
+
+    updateHeaderTitle();
 }
 
-function showSettingsModal() {
-    elements.settingsModal.classList.add('active');
+function updateHeaderTitle() {
+    const repo = state.config.repo || 'CoreWiki';
+    if (elements.headerTitle) {
+        // Update just the text node (first child), keep badge intact
+        elements.headerTitle.childNodes[0].textContent = repo + ' ';
+    }
+    if (elements.metaPanelRepoName) {
+        elements.metaPanelRepoName.textContent = repo;
+    }
+    document.title = `${repo} – gh repo viewer`;
 }
 
-function hideSettingsModal() {
-    elements.settingsModal.classList.remove('active');
+// ─── Sidebar Toggle ───────────────────────────────────────────────────────────
+function toggleSidebar() {
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+        // Mobile: toggle .active on sidebar for slide-in
+        elements.sidebar.classList.toggle('active');
+        elements.appLayout.classList.toggle('sidebar-collapsed',
+            !elements.sidebar.classList.contains('active'));
+    } else {
+        // Desktop: toggle collapsed class on layout
+        elements.appLayout.classList.toggle('sidebar-collapsed');
+        localStorage.setItem('sidebar_collapsed',
+            elements.appLayout.classList.contains('sidebar-collapsed'));
+    }
+}
+
+// ─── Meta Panel ───────────────────────────────────────────────────────────────
+function openMetaPanel(tab = 'settings') {
+    elements.metaPanel.classList.add('active');
+    elements.metaOverlay.classList.add('active');
+    switchMetaTab(tab);
+    updateHeaderTitle();
+    // Scan repo files when repofiles tab might be shown
+    scanRepoFiles();
+}
+
+function closeMetaPanel() {
+    elements.metaPanel.classList.remove('active');
+    elements.metaOverlay.classList.remove('active');
+}
+
+function switchMetaTab(tabName) {
+    document.querySelectorAll('.meta-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.tab === tabName);
+    });
+    document.querySelectorAll('.meta-tab-content').forEach(c => {
+        c.classList.toggle('active', c.id === `tab-${tabName}`);
+    });
+}
+
+// Special repo files to look for
+const SPECIAL_FILES = [
+    { name: 'LICENSE',           desc: 'Project license',              icon: 'scale' },
+    { name: 'LICENSE.md',        desc: 'Project license',              icon: 'scale' },
+    { name: 'ABOUT.md',          desc: 'About this project',           icon: 'info' },
+    { name: 'CONTRIBUTING.md',   desc: 'Contribution guidelines',      icon: 'git-pull-request' },
+    { name: 'CHANGELOG.md',      desc: 'Version history',              icon: 'history' },
+    { name: 'CODE_OF_CONDUCT.md',desc: 'Community standards',          icon: 'shield' },
+    { name: 'SECURITY.md',       desc: 'Security policy',              icon: 'lock' },
+    { name: 'ROADMAP.md',        desc: 'Project roadmap',              icon: 'map' },
+    { name: 'ARCHITECTURE.md',   desc: 'System architecture',          icon: 'layers' },
+    { name: 'INSTALL.md',        desc: 'Installation guide',           icon: 'download' },
+    { name: 'README.md',         desc: 'Project readme',               icon: 'book-open' },
+];
+
+async function scanRepoFiles() {
+    const list = elements.repofilesList;
+    if (!list) return;
+    if (!state.config.owner || !state.config.repo) {
+        list.innerHTML = '<p class="repofile-not-found">Configure a repository first.</p>';
+        return;
+    }
+
+    list.innerHTML = '<div class="loading-spinner" style="padding:1.5rem 0;"><i data-lucide="loader" class="spin"></i> Scanning...</div>';
+    lucide.createIcons();
+
+    const found = [];
+    await Promise.all(SPECIAL_FILES.map(async (sf) => {
+        const url = `https://raw.githubusercontent.com/${state.config.owner}/${state.config.repo}/${state.config.branch}/${sf.name}`;
+        try {
+            const res = await fetch(url, { method: 'HEAD', headers: getFetchHeaders() });
+            if (res.ok) found.push(sf);
+        } catch(_) {}
+    }));
+
+    list.innerHTML = '';
+    if (found.length === 0) {
+        list.innerHTML = '<p class="repofile-not-found">No special files found in this repo.</p>';
+        return;
+    }
+
+    // De-dupe (e.g. LICENSE and LICENSE.md — keep only first found)
+    const seen = new Set();
+    found.filter(sf => {
+        const key = sf.name.replace('.md','').toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    }).forEach(sf => {
+        const item = document.createElement('div');
+        item.className = 'repofile-item';
+        item.innerHTML = `
+            <i data-lucide="${sf.icon}" style="width:16px;height:16px;"></i>
+            <div>
+                <div class="repofile-item-name">${sf.name}</div>
+                <div class="repofile-item-desc">${sf.desc}</div>
+            </div>`;
+        item.addEventListener('click', () => {
+            closeMetaPanel();
+            loadRawFile(sf.name);
+        });
+        list.appendChild(item);
+    });
+    lucide.createIcons();
+}
+
+// Load a raw (non-markdown) or markdown file into the content viewer
+async function loadRawFile(filename) {
+    state.activePath = filename;
+    elements.breadcrumbs.innerHTML = `<span class="current">${filename}</span>`;
+    elements.contentViewer.innerHTML = `<div class="loading-spinner"><i data-lucide="loader" class="spin"></i> Loading ${filename}...</div>`;
+    lucide.createIcons();
+
+    try {
+        const url = `https://raw.githubusercontent.com/${state.config.owner}/${state.config.repo}/${state.config.branch}/${filename}`;
+        const res = await fetch(url, { headers: getFetchHeaders() });
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        const text = await res.text();
+        state.currentMarkdown = text;
+        setViewMode('preview');
+    } catch(err) {
+        elements.contentViewer.innerHTML = `<div class="error-container"><h2>Failed to load ${filename}</h2><p>${err.message}</p></div>`;
+        lucide.createIcons();
+    }
 }
 
 function saveSettingsFromForm() {
     state.config.owner = elements.ownerInput.value.trim();
-    state.config.repo = elements.repoInput.value.trim();
+    state.config.repo = elements.repoInput.value.trim() || 'CoreDocs';
     state.config.branch = elements.branchInput.value.trim() || 'main';
     state.config.token = elements.tokenInput.value.trim();
 
     localStorage.setItem('coredocs_config', JSON.stringify(state.config));
-    hideSettingsModal();
+    updateHeaderTitle();
+    closeMetaPanel();
     syncRepository();
 }
 
@@ -388,12 +528,20 @@ function getFetchHeaders() {
 // Main sync operation
 async function syncRepository() {
     if (!state.config.owner || !state.config.repo) {
-        showWelcomeScreen("Configure your Repository settings to load documents.");
+        showWelcomeScreen('Configure your Repository settings to load documents.');
         return;
     }
 
+    // Show loading in BOTH sidebar and main content (so mobile users see feedback)
     showTreeLoader();
+    elements.contentViewer.innerHTML = `
+        <div class="loading-spinner" style="padding:4rem 0;">
+            <i data-lucide="loader" class="spin"></i>
+            Loading <strong>${state.config.repo}</strong>...
+        </div>`;
+    lucide.createIcons();
 
+    updateHeaderTitle();
     try {
         // Fetch Git Tree recursively
         const url = `https://api.github.com/repos/${state.config.owner}/${state.config.repo}/git/trees/${state.config.branch}?recursive=1`;

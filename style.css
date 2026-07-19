@@ -106,6 +106,12 @@ body {
     font-weight: 600;
 }
 
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 .header-actions {
     display: flex;
     gap: 0.5rem;
@@ -968,23 +974,275 @@ mark.search-highlight {
     margin-top: 2rem;
 }
 
-/* Sidebar toggle */
-.sidebar-toggle {
-    display: none;
+/* Sidebar collapse toggle — visible on ALL screen sizes in header */
+.sidebar-toggle-btn {
+    /* inherits .btn-icon styles */
+}
+
+/* Sidebar collapsed state (desktop) */
+.app-layout.sidebar-collapsed .app-sidebar {
+    transform: translateX(-100%);
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+    border-right: none;
+}
+
+/* ══════════════════════════════════════════════════
+   RIGHT META PANEL
+══════════════════════════════════════════════════ */
+.meta-overlay {
     position: fixed;
-    bottom: 1.5rem;
-    right: 1.5rem;
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    z-index: 110;
-    cursor: pointer;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    z-index: 190;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.meta-overlay.active {
+    display: block;
+    opacity: 1;
+}
+
+.meta-panel {
+    position: fixed;
+    top: 1.2rem;
+    right: 1.2rem;
+    bottom: 1.2rem;
+    width: 380px;
+    max-width: calc(100vw - 2.4rem);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    border-radius: 16px !important;
+    padding: 0 !important;
+    overflow: hidden;
+    transform: translateX(calc(100% + 2rem));
+    transition: transform 0.3s cubic-bezier(0.34, 1.26, 0.64, 1);
+    box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.7);
+}
+
+.meta-panel.active {
+    transform: translateX(0);
+}
+
+.meta-panel-header {
+    display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
+    padding: 1.2rem 1.4rem 0.8rem;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.meta-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+/* Meta Tab Nav */
+.meta-tabs {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.7rem 1rem 0;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+    overflow-x: auto;
+}
+
+.meta-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: 8px 8px 0 0;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all var(--transition-speed);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+
+.meta-tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-surface-hover);
+}
+
+.meta-tab.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+    background: rgba(99,102,241,0.08);
+}
+
+/* Meta Body (scrollable content) */
+.meta-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.4rem;
+}
+
+.meta-tab-content {
+    display: none;
+}
+
+.meta-tab-content.active {
+    display: block;
+}
+
+/* App Info tab */
+.appinfo-hero {
+    text-align: center;
+    padding: 1.2rem 0 1.4rem;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 1.2rem;
+}
+
+.appinfo-icon {
+    width: 44px;
+    height: 44px;
+    color: var(--primary-color);
+    margin-bottom: 0.7rem;
+}
+
+.appinfo-hero h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+}
+
+.appinfo-tagline {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+.appinfo-features {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    margin-bottom: 1.4rem;
+}
+
+.appinfo-feature {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: 10px;
+    background: rgba(0,0,0,0.12);
+    border: 1px solid var(--border-color);
+}
+
+.appinfo-feature i {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    margin-top: 1px;
+}
+
+.appinfo-feature strong {
+    display: block;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.15rem;
+}
+
+.appinfo-feature span {
+    font-size: 0.77rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.appinfo-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.appinfo-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: opacity var(--transition-speed);
+}
+
+.appinfo-link:hover {
+    opacity: 0.75;
+}
+
+/* Repo Files tab */
+.repofiles-hint {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-bottom: 0.8rem;
+}
+
+.repofiles-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.repofile-item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 9px;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: all var(--transition-speed);
+    background: rgba(0,0,0,0.1);
+}
+
+.repofile-item:hover {
+    background: var(--bg-surface-hover);
+    border-color: var(--primary-color);
+    transform: translateX(3px);
+}
+
+.repofile-item i {
+    flex-shrink: 0;
+    color: var(--primary-color);
+}
+
+.repofile-item-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.repofile-item-desc {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.repofile-not-found {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 0.3rem 0;
 }
 
 /* Custom Scrollbars */
@@ -1029,12 +1287,16 @@ mark.search-highlight {
         top: 0;
         bottom: 0;
         transform: translateX(-100%);
+        z-index: 150;
     }
     .app-sidebar.active {
         transform: translateX(0);
     }
-    .sidebar-toggle {
-        display: flex;
+    /* On mobile, sidebar collapsed = hidden (default state) */
+    .app-layout.sidebar-collapsed .app-sidebar {
+        transform: translateX(-100%);
+        width: var(--sidebar-width);
+        border-right: 1px solid var(--border-color);
     }
 }
 
